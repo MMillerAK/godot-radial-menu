@@ -1,8 +1,6 @@
 using Godot;
 using System;
-
 //Custom wrapper for the radial menu
-
 [Tool]
 [GlobalClass]
 public partial class RadialMenu : Container
@@ -12,7 +10,6 @@ public partial class RadialMenu : Container
     [Signal]
     public delegate void SelectedEventHandler(Node child);
     const float MINWIDTH = 0.01f;
-
     [Export]
     public PackedScene CenterNode
     {
@@ -27,7 +24,6 @@ public partial class RadialMenu : Container
                 child.Visible = false;
                 child.QueueFree();
             }
-
             if (value == null)
             {
                 return;
@@ -37,7 +33,6 @@ public partial class RadialMenu : Container
     }
     [Export]
     public bool Snap;
-
     [Export(PropertyHint.Range, "0,1")]
     public float MaxWidth
     {
@@ -48,7 +43,6 @@ public partial class RadialMenu : Container
             {
                 return;
             }
-
             maxWidth = value;
             this.SetShaderParameter("width_max", value);
             if (value - MinWidth < MINWIDTH)
@@ -68,16 +62,12 @@ public partial class RadialMenu : Container
             {
                 return;
             }
-
             minWidth = value;
             this.SetShaderParameter("width_min", value);
-
-
             if (maxWidth - value < MINWIDTH)
             {
                 SetWidthMax(value + MinWidth * 2);
             }
-
             center.CustomMinimumSize = new Vector2(minWidth, minWidth);
             EmitSignal(SignalName.SortChildren);
         }
@@ -113,7 +103,6 @@ public partial class RadialMenu : Container
             {
                 float indexOffset = (float)CursorPosition.Call("get_index_offset");
                 CursorDegrees = Godot.Mathf.Snapped(cursorTarget, indexOffset);
-
             }
             else
             {
@@ -121,14 +110,12 @@ public partial class RadialMenu : Container
             }
         }
     }
-
     [Export]
     public Color BgColor
     {
         get => bgColor;
         set
         {
-
             bgColor = value;
             SetShaderParameter("color_bg", value);
         }
@@ -140,7 +127,6 @@ public partial class RadialMenu : Container
         set
         {
             fgColor = value;
-
             SetShaderParameter("color_fg", value);
         }
     }
@@ -177,223 +163,161 @@ public partial class RadialMenu : Container
             return Mathf.Min(size.X, size.Y); ;
         }
     }
-
     public Control CursorPosition
     {
         get
         {
-
             Node node = GetNode<Control>("RadialMenu/CursorPos");
-
             return (Control)node;
         }
     }
-
-
-    public void SetWidthMax(float value)
-    {
-
     }
-    public void SetWidthMin(float value)
-    {
-
-
-
-    }
-
-    private PackedScene centerNode;
-    private CenterContainer center;
+    private PackedScene centerNode = null;
+    private CenterContainer center = null;
     private float maxWidth = 1.0f;
     private float minWidth = 0.5f;
     private float cursorSize = 0.4f;
-
     private float cursorDegrees = 0.4f;
     private float cursorTarget = 0.4f;
-
     private Color bgColor = new Color("202431");
     private Color fgColor = new Color("595f70");
-
     private float bevelWidth = 0.5f;
     private bool bevelEnabled = false;
     private Color bevelColor = new Color("333a4f");
-
     private bool modulateEnabled = false;
     private Color modulateHover = Colors.White;
     private Color modulateDefault = new Color("b6b6b6");
 
-    private Tween snapTween;
-
-
-
     public void SetShaderParameter(string name, Variant value)
+{
+    if (GetChildren().Count == 0)
     {
-        if (GetChildren().Count == 0)
-        {
-            return;
-        }
-
+        return;
+    }
         ((ShaderMaterial)GetNode<ColorRect>("RadialMenu/Background").Material).SetShaderParameter(name, value);
-
-    }
-
-
-
-
-    public void Setup()
+}
+public void AddButton(Control button)
+{
+    AddChild(button);
+    PlaceButtons();
+}
+private void Setup()
+{
+    OnSortChildren();
+    doModulate();
+}
+private Godot.Collections.Array<Node> GetChildren()
+{
+    Godot.Collections.Array<Node> results = ((Node)this).GetChildren();
+    results.RemoveAt(0);
+    return results;
+}
+private void PlaceButtons()
+{
+    var buttons = GetChildren();
+    if (buttons.Count == 0)
     {
-        doModulate();
+        return;
     }
-
-    private Godot.Collections.Array<Node> GetChildren()
+    float angleIncrement = (2 * Mathf.Pi) / buttons.Count;
+    Rect2 rect = GetRect();
+    Vector2 center = rect.Size / 2;
+    float minSizeF = MinimumSize;
+    Vector2 minSize = new Vector2(minSizeF, minSizeF);
+    float angle = 0;
+    foreach (Control button in buttons)
     {
-        Godot.Collections.Array<Node> results = ((Node)this).GetChildren();
-        results.RemoveAt(0);
-
-        return results;
-    }
-
-
-
-    private void PlaceButtons()
-    {
-        var buttons = GetChildren();
-        if (buttons.Count == 0)
+        Vector2 pos = Vector2.FromAngle(angle);
+        pos = pos * minSize / 2;
+        if (minSize.LengthSquared() > 0)
         {
-            return;
-        }
-
-        float angleIncrement = (2 * Mathf.Pi) / buttons.Count;
-
-        Rect2 rect = GetRect();
-        Vector2 center = rect.Size / 2;
-        float minSizeF = MinimumSize;
-        Vector2 minSize = new Vector2(minSizeF, minSizeF);
-        float angle = 0;
-        foreach (Control button in buttons)
-        {
-            Vector2 pos = Vector2.FromAngle(angle);
-            pos = pos * minSize / 2;
-
-            if (minSize.LengthSquared() > 0)
-            {
-                pos *= Vector2.One - (button.Size / minSize) * 3;
-
-                pos = pos - button.Size / 2;
-                pos = pos + center;
-                button.SetPosition(pos);
-
-                angle += angleIncrement;
-
-                button.FocusMode = FocusModeEnum.None;
-            }
-        }
-        doModulate();
-    }
-
-    private void AddButton(Control button)
-    {
-        AddChild(button);
-        PlaceButtons();
-    }
-
-    private void OnsortChildren()
-    {
-        PlaceButtons();
-        float minSizeF = MinimumSize;
-
-        Control radial = (Control)GetNode("RadialMenu");
-        radial.AnchorLeft = (float)Anchor.Begin;
-        radial.AnchorTop = (float)Anchor.Begin;
-        radial.AnchorRight = (float)Anchor.End;
-        radial.AnchorBottom = (float)Anchor.End;
-
-        Control background = (Control)GetNode("RadialMenu/Background");
-        background.CustomMinimumSize = new Vector2(minSizeF, minSizeF);
-        background.PivotOffset = new Vector2(minSizeF / 2, minSizeF / 2);
-
-        if (!Engine.IsEditorHint())
-        {
-            CursorPosition.Call("set_count", GetChildren().Count);
+            pos *= Vector2.One - (button.Size / minSize) * 3;
+            pos = pos - button.Size / 2;
+            pos = pos + center;
+            button.SetPosition(pos);
+            angle += angleIncrement;
+            button.FocusMode = FocusModeEnum.None;
         }
     }
-
-    private void OnSelected(int index)
+    doModulate();
+}
+private void OnSortChildren()
+{
+    PlaceButtons();
+    float minSizeF = MinimumSize;
+    Control radial = (Control)GetNode("RadialMenu");
+    radial.AnchorLeft = (float)Anchor.Begin;
+    radial.AnchorTop = (float)Anchor.Begin;
+    radial.AnchorRight = (float)Anchor.End;
+    radial.AnchorBottom = (float)Anchor.End;
+    Control background = (Control)GetNode("RadialMenu/Background");
+    background.CustomMinimumSize = new Vector2(minSizeF, minSizeF);
+    background.PivotOffset = new Vector2(minSizeF / 2, minSizeF / 2);
+    if (!Engine.IsEditorHint())
     {
-        CanvasItem child = (CanvasItem)GetChild(index);
-        if (child is BaseButton button)
-        {
-            button.ButtonPressed = true;
-
-            button.EmitSignal(BaseButton.SignalName.Pressed);
-        }
-        EmitSignal(SignalName.Selected, child);
-        if (modulateEnabled)
-            doModulate((CanvasItem)child);
-
-
-
+        CursorPosition.Call("set_count", GetChildren().Count);
     }
-
-    private void OnHover(int index)
+}
+private void OnSelected(int index)
+{
+    CanvasItem child = (CanvasItem)GetChild(index);
+    if (child is BaseButton button)
     {
-        var child = GetChild(index);
-        EmitSignal(SignalName.Hovered, child);
-        if (modulateEnabled)
-            doModulate((CanvasItem)child);
-
-
-
+        button.ButtonPressed = true;
+        button.EmitSignal(BaseButton.SignalName.Pressed);
     }
-
-    private void doModulate(CanvasItem Hovered = null)
+    EmitSignal(SignalName.Selected, child);
+    if (modulateEnabled)
+        doModulate((CanvasItem)child);
+}
+private void OnHover(int index)
+{
+    var child = GetChild(index);
+    EmitSignal(SignalName.Hovered, child);
+    if (modulateEnabled)
+        doModulate((CanvasItem)child);
+}
+private void DoModulate(CanvasItem Hovered = null)
+{
+    Color defaultColor = Colors.White;
+    if (modulateEnabled)
     {
-        Color defaultColor = Colors.White;
-        if (modulateEnabled)
-        {
-            defaultColor = modulateDefault;
-        }
-        foreach (CanvasItem child in GetChildren())
-        {
-            child.Modulate = defaultColor;
-        }
-        if (Hovered != null)
-        {
-            Hovered.Modulate = modulateHover;
-        }
+        defaultColor = modulateDefault;
     }
-
-
-
-    public override void _Input(InputEvent @event)
+    foreach (CanvasItem child in GetChildren())
     {
-        base._Input(@event);
-        Vector2 pos = (Vector2)CursorPosition.Get("cursor");
-        CursorTarget = Mathf.Atan2(pos.Y, pos.X);
+        child.Modulate = defaultColor;
     }
-
-    public RadialMenu()
+    if (Hovered != null)
     {
-        PackedScene scene = ResourceLoader.Load<PackedScene>("./RadialMenu.tscn");
-        AddChild(scene.Instantiate());
+        Hovered.Modulate = modulateHover;
     }
+}
+public override void _Input(InputEvent @event)
+{
+    base._Input(@event);
+    Vector2 pos = (Vector2)CursorPosition.Get("cursor");
+    CursorTarget = Mathf.Atan2(pos.Y, pos.X);
+}
+public RadialMenu()
+{
+    PackedScene scene = ResourceLoader.Load<PackedScene>("./RadialMenu.tscn");
+    AddChild(scene.Instantiate());
+}
+public override void _Ready()
+{
+    base._Ready();
+    CursorPosition.Connect("hover", Callable.From<int>(OnHover));
+    CursorPosition.Connect("selected", Callable.From<int>(OnSelected));
 
-    public override void _Ready()
+    Setup();
+}
+public override void _Notification(int what)
+{
+    base._Notification(what);
+    if (what == NotificationSortChildren)
     {
-
-        base._Ready();
-        CursorPosition.Connect("hover", Callable.From<int>(OnHover));
-        CursorPosition.Connect("selected", Callable.From<int>(OnSelected));
-        OnsortChildren();
+        this.OnsortChildren();
     }
-
-    public override void _Notification(int what)
-    {
-        base._Notification(what);
-
-        if (what == NotificationSortChildren)
-        {
-            this.OnsortChildren();
-        }
-    }
-
+}
 }
